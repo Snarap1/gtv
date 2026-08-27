@@ -76,10 +76,3 @@ func TestRecordPersistsAndAccumulates(t *testing.T) {
 		}
 	}
 }
-
-func TestRunLine(t *testing.T) {
-	got := RunLine(4000, 400)
-	if !strings.Contains(got, "~900 tokens") || !strings.Contains(got, "90%") {
-		t.Fatalf("RunLine = %q", got)
-	}
-}

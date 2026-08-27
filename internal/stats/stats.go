@@ -149,11 +149,6 @@ func writeBlock(b *strings.Builder, label string, s Snapshot) {
 	b.WriteByte('\n')
 }
 
-func RunLine(baseline, actual int64) string {
-	return fmt.Sprintf("gtv: saved ~%d tokens (%d%%) this run",
-		Saved(baseline, actual), Percent(baseline, actual))
-}
-
 func filePath() (string, error) {
 	base, err := os.UserCacheDir()
 	if err != nil {

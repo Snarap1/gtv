@@ -205,7 +205,6 @@ func recordSavings(root string, gradleBytes int64, tree *model.Tree, opts render
 	if err := stats.Record(root, gradleBytes, actual); err != nil {
 		fmt.Fprintf(os.Stderr, "gtv: stats: %v\n", err)
 	}
-	fmt.Fprintln(os.Stderr, stats.RunLine(gradleBytes, actual))
 }
 
 func agentReportBytes(tree *model.Tree, opts render.Options) int64 {
