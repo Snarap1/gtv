@@ -38,6 +38,33 @@ Cross-compile all platforms into `dist/`:
 The version baked into each binary comes from the nearest git tag
 (`git describe --tags --always --dirty`), or `dev` when the repo has none.
 
+### Windows
+
+`build.sh` is a bash script and will not run in `cmd.exe` or PowerShell.
+Use WSL, or build natively with plain Go:
+
+```powershell
+cd path\to\gradleTestCliViewer
+go build -o gtv.exe .\cmd\gtv
+```
+
+Requires Go 1.22+ (`go version` to check). This skips the git-tag version
+stamping that `build.sh` does, so `gtv --version` reports `dev`.
+
+Put it on `PATH`:
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\bin" | Out-Null
+Move-Item gtv.exe "$env:USERPROFILE\bin\gtv.exe" -Force
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;$env:USERPROFILE\bin", "User")
+```
+
+Open a new terminal for the `PATH` change to take effect, then verify with
+`gtv --version`.
+
+Alternatively, cross-compile `dist/gtv-windows-amd64.exe` on Linux/Mac (see
+above) and copy that binary over instead of building on Windows at all.
+
 ## Uninstall
 
 Remove the installed binary and the cache directory (`~/.cache/gtv`,
@@ -57,6 +84,33 @@ rm -rf ~/.cache/gtv
 
 A local `./gtv` binary or the `dist/` cross-builds are not touched;
 delete those yourself if you created them.
+
+## Agent skill
+
+`skills/gtv/SKILL.md` teaches a coding agent how to drive `gtv`: target syntax,
+the `PASS`/`FAIL`/`NOTESTS` output, exit codes, which flags matter, and when not
+to reach for it.
+It is a plain `SKILL.md` (the format Claude Code, OpenCode and Codex CLI all read),
+so `install-skill.sh` only has to drop it in the right directory:
+
+```
+./install-skill.sh              # all three agents, current project
+./install-skill.sh --user       # all three agents, this machine
+./install-skill.sh --agent=claude --project=/path/to/repo
+./install-skill.sh --link       # symlink instead of copy, for editing the skill
+./install-skill.sh --uninstall --user
+```
+
+| Agent    | Project scope                | User scope                        |
+|----------|------------------------------|-----------------------------------|
+| Claude Code | `.claude/skills/gtv`      | `~/.claude/skills/gtv`            |
+| OpenCode | `.opencode/skills/gtv`       | `~/.config/opencode/skills/gtv`   |
+| Codex CLI | `.agents/skills/gtv`        | `~/.codex/skills/gtv`             |
+
+Rerunning is safe: an install created by this script is replaced in place. A
+skill directory it did not create is left alone unless you pass `--force`.
+`--dry-run` prints the file operations without performing any.
+Restart the agent (or open a new session) after installing.
 
 ## Usage
 
@@ -128,6 +182,19 @@ UserServiceTest: 3/4 ok, 1 failed (34ms)
     expected: <400> but was: <500>
     at com.example.UserServiceTest.shouldRejectInvalidId(UserServiceTest.kt:42)
 ```
+
+When the thrown exception only wraps the real one, the `Caused by` chain is
+mined for the link that explains the failure — a Spring context that will not
+start names the rejected credential instead of just saying it failed to start:
+
+```
+✗ NotionBudgetApplicationTests > contextLoads
+  IllegalStateException: Failed to load ApplicationContext for [...]
+  caused by: PSQLException: ERROR: password authentication failed for user 'neondb_owner'
+```
+
+Links that only requote their own cause are dropped, so the chain usually
+collapses to the one line worth reading. `--json` carries the whole chain.
 
 ## Windows
 

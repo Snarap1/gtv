@@ -14,10 +14,6 @@ import (
 
 const pollInterval = 40 * time.Millisecond
 
-// tailEvents follows an NDJSON file that another process appends to, emitting
-// each complete line. It returns once stop is closed and the file has been
-// drained. Any unreadable event is fatal: a partial report is misleading.
-// Polling rather than inotify keeps this identical on every OS.
 func tailEvents(path string, stop <-chan struct{}, out chan<- event.Event) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -41,7 +37,7 @@ func tailEvents(path string, stop <-chan struct{}, out chan<- event.Event) error
 				if final && len(bytes.TrimSpace(partial)) > 0 {
 					return fmt.Errorf("malformed event stream: unterminated final line")
 				}
-				return nil // io.EOF: the line is still being written, keep it buffered
+				return nil
 			}
 			line := partial
 			partial = nil
@@ -59,7 +55,7 @@ func tailEvents(path string, stop <-chan struct{}, out chan<- event.Event) error
 		}
 		select {
 		case <-stop:
-			if err := drain(true); err != nil { // the writer has exited; pick up whatever it flushed last
+			if err := drain(true); err != nil {
 				return err
 			}
 			return nil

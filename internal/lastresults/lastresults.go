@@ -1,6 +1,3 @@
-// Package lastresults reads the JUnit XML reports Gradle already wrote under
-// build/test-results, instead of running the tests again. It folds them into
-// the same model.Tree a live run builds, so both renderers work unchanged.
 package lastresults
 
 import (
@@ -17,12 +14,8 @@ import (
 	"github.com/pavelnaibich/gtv/internal/model"
 )
 
-// ErrNoResults means the test-results directory has no XML reports (or none
-// matching the target) — the tests in question have never been run.
 var ErrNoResults = errors.New("no test results found; run without --last first")
 
-// Dir maps a Gradle task path to the directory Gradle writes its JUnit XML
-// reports to, e.g. ":a:b:test" -> "<root>/a/b/build/test-results/test".
 func Dir(root, task string) string {
 	task = strings.TrimPrefix(task, ":")
 	parts := strings.Split(task, ":")
@@ -31,9 +24,6 @@ func Dir(root, task string) string {
 	return filepath.Join(segs...)
 }
 
-// Load reads every TEST-*.xml report in dir whose class matches filter — a
-// bare class FQN, "FQN.method", or "" for every report in dir — and folds
-// them into a tree shaped the same way a live run would build it.
 func Load(dir, task, filter string) (*model.Tree, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -107,9 +97,6 @@ func parse(path string) (testsuiteXML, error) {
 	return ts, nil
 }
 
-// classNode is one level of the class hierarchy reconstructed from
-// classname attributes: the XML report has no structural nesting, only
-// "Outer" and "Outer$Nested1$Nested2" strings to split apart.
 type classNode struct {
 	cls      string
 	label    string
@@ -118,9 +105,6 @@ type classNode struct {
 	tests    []testcaseXML
 }
 
-// buildTrie groups a report's testcases by class, using the outer class's own
-// name as the root — including it even when it directly holds no test cases
-// of its own, since @Nested children still need it as their parent.
 func buildTrie(outerFQN string, cases []testcaseXML) *classNode {
 	label := outerFQN
 	if i := strings.LastIndex(label, "."); i >= 0 {
@@ -152,17 +136,6 @@ func buildTrie(outerFQN string, cases []testcaseXML) *classNode {
 	return root
 }
 
-// emit walks the trie depth-first, feeding synthetic events into t exactly
-// like a live run would — a SuiteStart/SuiteEnd pair per class level and a
-// TestStart/TestEnd pair per test case — so every field a renderer reads
-// (Total/Ok/Failed/Skipped, Start/End) comes from the same code path as a
-// real run instead of being poked in after the fact.
-//
-// The XML has no wall-clock timestamps, only each test's own duration, so
-// offset is a running clock: every leaf advances it by its own time and every
-// suite's Start/End is simply where that clock stood when it began and ended.
-// That makes the tree's total duration the sum of every test's reported time
-// rather than true wall time, which is unknowable from the report alone.
 func emit(t *model.Tree, task, file string, n *classNode, parent string, offset int64) (newOffset, total, ok, failed, skipped int64) {
 	key := file + "::" + n.cls
 	t.Apply(event.Event{E: event.SuiteStart, Task: task, Key: key, Parent: parent, Name: n.label, Display: n.label, Cls: n.cls})

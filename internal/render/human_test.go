@@ -9,9 +9,6 @@ import (
 	"github.com/pavelnaibich/gtv/internal/model"
 )
 
-// Captured shape of a real gtv run: Gradle scaffolding wrapping one class with
-// a plain test, a @Nested group, and a @ParameterizedTest method with one
-// failing invocation among three.
 const humanFixture = `
 {"e":"suiteStart","task":":m:test","key":":m:test/1","parent":null,"name":"Gradle Test Run :m:test","display":"Gradle Test Run :m:test","cls":""}
 {"e":"suiteStart","task":":m:test","key":":m:test/1.1","parent":":m:test/1","name":"Gradle Test Executor 1","display":"Gradle Test Executor 1","cls":""}
@@ -75,7 +72,7 @@ func TestHumanCollapsesPassingParamGroup(t *testing.T) {
 		if !ok {
 			t.Fatalf("bad fixture line: %s", line)
 		}
-		// Flip the failing invocation to a pass so the whole group collapses.
+
 		if e.Key == ":m:test/1.8" && e.E == event.TestEnd {
 			e.Res = event.Success
 			e.Failures = nil

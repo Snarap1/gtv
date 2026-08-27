@@ -1,5 +1,3 @@
-// Command gtv runs Gradle tests and reports them in a form built for reading —
-// by a person or by a coding agent — instead of Gradle's default silence.
 package main
 
 import (
@@ -39,8 +37,6 @@ examples:
 
 flags:`
 
-// version is set at build time via -ldflags "-X main.version=...";
-// see build.sh, which fills it in from the nearest git tag.
 var version = "dev"
 
 func main() {
@@ -117,9 +113,6 @@ func main() {
 	})
 }
 
-// wantHuman picks the tree renderer for an interactive terminal and the
-// compact one otherwise; CI and coding-agent harnesses look like a tty but
-// want the compact form, so their env vars override the tty check.
 func wantHuman(forceAgent, forceHuman, tty bool) bool {
 	switch {
 	case forceHuman:
@@ -169,16 +162,12 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 
 	cfg := runner.Config{Root: root, JavaHome: jdk.Home, Args: gradleArgs, ForceRerun: !noRerun, CaptureOutput: opts.ShowOutput}
 
-	// Live progress only makes sense when the final frame lands on the same
-	// terminal: a coding agent or a redirected file gets the static render only.
 	var live *render.Live
 	if human && isTTY(os.Stdout) {
 		live = render.NewLive(os.Stdout, color, 12)
 		cfg.OnEvent = live.Handle
 	}
 
-	// Forcing the rerun happens inside the init script rather than via Gradle's
-	// --rerun flag, which would only cover the task named on the command line.
 	res, err := runner.Execute(cfg)
 	if live != nil {
 		live.Finish()
@@ -187,8 +176,6 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 		return fatal(err)
 	}
 
-	// Gradle still emits its scaffolding suites when a filter matches nothing, so
-	// an empty run has to be judged by the test count, not by the event count.
 	if res.Tree.Counts().Total == 0 {
 		fmt.Printf("NOTESTS %s\n", strings.Join(args, " "))
 		fmt.Print(indent(reason(res.GradleOutput)))
@@ -207,15 +194,12 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 		return 1
 	}
 	if res.ExitCode != 0 {
-		// Keep --json stdout parseable even when a non-test Gradle task fails.
+
 		fmt.Fprint(os.Stderr, indent(reason(res.GradleOutput)))
 	}
 	return res.ExitCode
 }
 
-// recordSavings compares the agent report to the full Gradle console from the
-// same run and persists the counters. Baseline is real captured bytes (not an
-// NDJSON estimate and not a second Gradle launch).
 func recordSavings(root string, gradleBytes int64, tree *model.Tree, opts render.Options) {
 	actual := agentReportBytes(tree, opts)
 	if err := stats.Record(root, gradleBytes, actual); err != nil {
@@ -239,9 +223,6 @@ func printStats() int {
 	return 0
 }
 
-// resolveArgs turns the leading target argument into a Gradle task path
-// (plus a --tests filter, when the target names a class rather than a task)
-// and appends any remaining gradle args the caller passed after it.
 func resolveArgs(root string, args []string, reindex bool) ([]string, error) {
 	t, err := resolveTarget(root, args[0], reindex)
 	if err != nil {
@@ -254,8 +235,6 @@ func resolveArgs(root string, args []string, reindex bool) ([]string, error) {
 	return append(out, args[1:]...), nil
 }
 
-// resolveTarget wraps target.Resolve, folding an ambiguous match's candidate
-// list into the error message so every caller reports it the same way.
 func resolveTarget(root, arg string, reindex bool) (target.Target, error) {
 	t, cands, err := target.Resolve(root, arg, reindex)
 	if err == nil {
@@ -272,8 +251,6 @@ func resolveTarget(root, arg string, reindex bool) (target.Target, error) {
 	return target.Target{}, err
 }
 
-// writeReport picks the renderer: JSON wins outright, since it is a distinct
-// machine-readable mode rather than a variant of human/agent text.
 func writeReport(t *model.Tree, jsonOut, human, color bool, opts render.Options) error {
 	switch {
 	case jsonOut:
@@ -286,8 +263,6 @@ func writeReport(t *model.Tree, jsonOut, human, color bool, opts render.Options)
 	return nil
 }
 
-// runLast reads the previous run's JUnit XML reports instead of invoking
-// Gradle, for --last: no build, no wait, just what the last real run wrote.
 func runLast(args []string, human, color, reindex, jsonOut bool, opts render.Options) int {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -330,12 +305,8 @@ func fatal(err error) int {
 	return 2
 }
 
-// reason pulls Gradle's "What went wrong" section — the one part of a failed
-// build worth reading — falling back to the tail of the log when the build died
-// without one.
 func reason(output string) string {
-	// A compile failure reports only "See log for more details" in its section,
-	// while the diagnostics themselves sit further up the log.
+
 	if errs := compileErrors(output); len(errs) > 0 {
 		return strings.Join(errs, "\n")
 	}
@@ -364,8 +335,6 @@ func reason(output string) string {
 	return strings.Join(section, "\n")
 }
 
-// Kotlin reports "e: file:///abs/path/File.kt:56:31 message"; javac reports
-// "/abs/path/File.java:56: error: message".
 var (
 	kotlinError = regexp.MustCompile(`^e: (?:file://)?(\S+?):(\d+(?::\d+)?):?\s*(.*)$`)
 	javacError  = regexp.MustCompile(`^(\S+\.java):(\d+):\s*error:\s*(.*)$`)
@@ -373,8 +342,6 @@ var (
 
 const maxCompileErrors = 10
 
-// compileErrors extracts compiler diagnostics, shortening absolute paths to the
-// file name so a line stays readable.
 func compileErrors(output string) []string {
 	var out []string
 	for _, line := range strings.Split(output, "\n") {
@@ -399,7 +366,6 @@ func compileErrors(output string) []string {
 	return out
 }
 
-// tail keeps the last n lines, which is where Gradle puts the reason a build died.
 func tail(s string, n int) string {
 	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
 	if len(lines) > n {

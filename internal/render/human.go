@@ -16,21 +16,15 @@ const (
 	ansiDim    = "\x1b[2m"
 )
 
-// HumanOptions tunes the tree renderer. Failure detail (message, frames,
-// captured output) is shared with the agent renderer via the embedded Options.
 type HumanOptions struct {
 	Color bool
 	Options
 }
 
-// DefaultHumanOptions mirrors DefaultOptions with color on; callers turn it
-// off for NO_COLOR, TERM=dumb, or a non-tty stdout.
 func DefaultHumanOptions() HumanOptions {
 	return HumanOptions{Color: true, Options: DefaultOptions()}
 }
 
-// Human writes an indented, colored suite/test tree followed by failure
-// detail in the same format the agent renderer uses.
 func Human(w io.Writer, t *model.Tree, opts HumanOptions) {
 	c := t.Counts()
 	status, col := "PASS", ansiGreen
@@ -76,8 +70,6 @@ func renderNode(w io.Writer, n *model.Node, prefix string, last bool, opts Human
 	}
 }
 
-// renderFailedInvocations expands only the failed invocations of a
-// parameterized group; the rest stay collapsed into a trailing "+N ok" line.
 func renderFailedInvocations(w io.Writer, n *model.Node, prefix string, g groupCounts, opts HumanOptions) {
 	var failed []*model.Node
 	for _, c := range n.Children {
@@ -94,13 +86,8 @@ func renderFailedInvocations(w io.Writer, n *model.Node, prefix string, g groupC
 	}
 }
 
-// groupCounts tallies a parameterized-test container's invocations.
 type groupCounts struct{ total, ok, failed, skipped int }
 
-// paramGroup reports whether n is a parameterized-test method container
-// rather than a @Nested class: both are non-leaf nodes whose direct children
-// are all test invocations, but only a @Nested class introduces a new class
-// name. A parameterized method container shares its class with its parent.
 func paramGroup(n *model.Node) (groupCounts, bool) {
 	if n.IsTest || n.Scaffolding() || len(n.Children) == 0 {
 		return groupCounts{}, false

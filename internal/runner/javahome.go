@@ -9,15 +9,11 @@ import (
 	"strconv"
 )
 
-// JDK is a discovered toolchain.
 type JDK struct {
 	Home  string
 	Major int
 }
 
-// FindJavaHome returns the highest-versioned JDK of at least minMajor that also
-// ships javac. $JAVA_HOME wins outright when it qualifies, so an explicit choice
-// is never second-guessed.
 func FindJavaHome(minMajor int) (JDK, error) {
 	if home := os.Getenv("JAVA_HOME"); home != "" {
 		if jdk, ok := inspect(home); ok && jdk.Major >= minMajor {
@@ -77,8 +73,6 @@ func candidateDirs() []string {
 
 var releaseVersion = regexp.MustCompile(`JAVA_VERSION="?(\d+)`)
 
-// inspect reads the JDK's release file rather than spawning java -version, which
-// would cost ~100ms per candidate.
 func inspect(home string) (JDK, bool) {
 	javac := filepath.Join(home, "bin", "javac")
 	if runtime.GOOS == "windows" {
@@ -99,15 +93,13 @@ func inspect(home string) (JDK, bool) {
 	if err != nil {
 		return JDK{}, false
 	}
-	// Symlink farms such as /usr/lib/jvm hold several names for one JDK; resolve
-	// so the highest-version pick is not an alias of a lower one.
+
 	if resolved, err := filepath.EvalSymlinks(home); err == nil {
 		home = resolved
 	}
 	return JDK{Home: home, Major: major}, true
 }
 
-// FindGradleRoot walks up from start looking for the Gradle wrapper.
 func FindGradleRoot(start string) (string, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
@@ -132,8 +124,6 @@ func wrapperName() string {
 	return "gradlew"
 }
 
-// wrapperCommand returns the executable and leading arguments needed to invoke
-// the wrapper; Windows cannot CreateProcess a .bat directly.
 func wrapperCommand(root string) (string, []string) {
 	path := filepath.Join(root, wrapperName())
 	if runtime.GOOS == "windows" {

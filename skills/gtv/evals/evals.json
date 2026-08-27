@@ -1,0 +1,44 @@
+{
+  "skill_name": "gtv",
+  "evals": [
+    {
+      "id": 0,
+      "name": "targeted-green-run",
+      "prompt": "Прогони тесты класса JwtServiceTest в этом проекте и скажи, всё ли зелёное. Ничего не меняй в коде.",
+      "expected_output": "Runs gtv JwtServiceTest, reports the PASS line with counts, does not dump Gradle console noise.",
+      "files": [],
+      "assertions": [
+        "Ran the test through gtv with a targeted class argument (commands.log shows `gtv JwtServiceTest` or the FQN), not a bare ./gradlew test",
+        "Final answer states the result with the test count (7/7 ok)",
+        "No source file was modified (diff.patch is empty)"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "diagnose-and-fix-failure",
+      "prompt": "У меня падает тест в TaskCategoryServiceTest. Найди, что именно упало и почему, почини и убедись, что стало зелёно.",
+      "expected_output": "Runs gtv TaskCategoryServiceTest, reads the ✗ failure line (expected/actual + stack frame), fixes the production bug, reruns to PASS.",
+      "files": [],
+      "assertions": [
+        "Ran TaskCategoryServiceTest through gtv (commands.log shows a gtv invocation naming that class)",
+        "Named the failing test `seedDefaultCategories saves four default categories` in the answer",
+        "Identified the root cause as the three commented-out entries in DEFAULT_CATEGORIES in TaskCategoryService.kt",
+        "Fix changes production code (TaskCategoryService.kt), not the test's expectation",
+        "Reran the test after the fix and reported it green (4/4)"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "pre-commit-full-suite",
+      "prompt": "Собираюсь коммитить. Прогони весь тестовый таск проекта и коротко отчитайся, что упало, а что прошло.",
+      "expected_output": "Runs gtv :test (or the module test task), reports the FAIL/PASS summary and names failing tests without pasting Gradle output.",
+      "files": [],
+      "assertions": [
+        "Ran the whole test task through gtv (commands.log shows `gtv :test` or the module test task)",
+        "Answer names both failing tests: NotionBudgetApplicationTests > contextLoads and TaskCategoryServiceTest > seedDefaultCategories saves four default categories",
+        "Answer reports the pass/fail counts (54/56 ok, 2 fail)",
+        "Answer does not paste raw Gradle console output"
+      ]
+    }
+  ]
+}

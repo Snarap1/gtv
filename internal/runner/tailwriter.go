@@ -1,12 +1,7 @@
 package runner
 
-// maxGradleLog bounds the Gradle log kept in memory. Only the tail is ever
-// shown, and a --info run can produce hundreds of megabytes.
 const maxGradleLog = 256 * 1024
 
-// tailWriter keeps the last maxGradleLog bytes written to it and discards the rest.
-// Total counts every byte accepted, including those later dropped from the buffer,
-// so callers can measure the true Gradle console size without retaining it.
 type tailWriter struct {
 	buf     []byte
 	dropped bool
@@ -30,7 +25,6 @@ func (t *tailWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// String returns the retained tail, marked when earlier output was dropped.
 func (t *tailWriter) String() string {
 	if t.dropped {
 		return "[…earlier output dropped…]\n" + string(t.buf)

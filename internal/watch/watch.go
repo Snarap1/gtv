@@ -1,5 +1,3 @@
-// Package watch reruns a function whenever files under a directory change,
-// detected by polling mtimes — no external dependencies, identical on every OS.
 package watch
 
 import (
@@ -8,17 +6,12 @@ import (
 	"time"
 )
 
-// pollInterval trades responsiveness for CPU: frequent enough to feel live,
-// rare enough not to matter.
 const pollInterval = 500 * time.Millisecond
 
 var skipDir = map[string]bool{
 	".git": true, ".gradle": true, ".idea": true, "build": true, "out": true, "node_modules": true,
 }
 
-// Until calls run once immediately, then again every time a file under dir
-// changes, forever. The caller is expected to be a long-running command that
-// exits on interrupt (Ctrl+C); Until never returns on its own.
 func Until(dir string, run func()) {
 	last := snapshot(dir)
 	run()
@@ -31,8 +24,6 @@ func Until(dir string, run func()) {
 	}
 }
 
-// snapshot records each visible path's mtime and size. Comparing the full map
-// catches changes even when another path has a later timestamp.
 type fileStamp struct {
 	mtime int64
 	size  int64
@@ -42,7 +33,7 @@ func snapshot(dir string) map[string]fileStamp {
 	entries := make(map[string]fileStamp)
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil // a transient stat error must not kill the watch
+			return nil
 		}
 		if d.IsDir() && path != dir && skipDir[d.Name()] {
 			return fs.SkipDir

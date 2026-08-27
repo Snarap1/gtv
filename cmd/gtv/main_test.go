@@ -2,8 +2,6 @@ package main
 
 import "testing"
 
-// Captured from Gradle 9.2 + Kotlin 2.x: the failure section says nothing useful,
-// the diagnostic sits above it.
 const kotlinCompileLog = `> Task :m:compileTestKotlin FAILED
 e: file:///home/u/repo/src/test/kotlin/com/mm/GtvProbeTest.kt:50:33 Return type mismatch: expected 'Int', actual 'String'.
 

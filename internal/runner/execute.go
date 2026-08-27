@@ -11,41 +11,28 @@ import (
 	"github.com/pavelnaibich/gtv/internal/model"
 )
 
-// Config describes one Gradle invocation.
 type Config struct {
-	Root     string   // directory holding the Gradle wrapper
-	JavaHome string   // JDK to build with
-	Args     []string // task paths and Gradle flags, e.g. [":a:b:test", "--tests", "X"]
-	// ForceRerun makes every Test task ignore up-to-date checks and the build
-	// cache. Gradle's own --rerun cannot do this: it is a task option, so on an
-	// aggregate task like `check` it reruns the aggregate and leaves the Test
-	// task UP-TO-DATE, producing a run with no events at all.
+	Root     string
+	JavaHome string
+	Args     []string
+
 	ForceRerun bool
-	// OnEvent, when set, is called for every event as it arrives, on a single
-	// goroutine, before the run finishes.
+
 	OnEvent func(event.Event)
-	// CaptureOutput asks the init script to stream test stdout/stderr. It is
-	// disabled by default because retaining output is only useful for the
-	// --test-output report and can be voluminous.
+
 	CaptureOutput bool
 }
 
-// Result is what a finished run produced.
 type Result struct {
 	Tree     *model.Tree
 	ExitCode int
-	// GradleOutput is the wrapper's own stdout+stderr, truncated to its tail and
-	// kept back unless something went wrong outside the tests themselves (a
-	// compile error, no matching test).
+
 	GradleOutput string
-	// GradleBytes is the full size of that stdout+stderr stream, including bytes
-	// discarded from the retained tail. Used as the token-savings baseline.
+
 	GradleBytes int64
 	Events      int
 }
 
-// Execute runs Gradle with the listener attached and folds the streamed events
-// into a tree.
 func Execute(cfg Config) (*Result, error) {
 	tmp, err := os.MkdirTemp("", "gtv-")
 	if err != nil {

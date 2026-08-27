@@ -12,11 +12,11 @@ func TestTrimSignature(t *testing.T) {
 	cases := map[string]string{
 		"should pass()": "should pass",
 		"should coerce limit and calculate offset correctly(int, int, int, int)": "should coerce limit and calculate offset correctly",
-		// A parameterized invocation's name carries the arguments and must survive.
+
 		"page=1 size=50 -> expectedLimit=50 expectedOffset=0": "page=1 size=50 -> expectedLimit=50 expectedOffset=0",
-		"UserQueryService":                            "UserQueryService",
-		"search() golden path":                                "search() golden path",
-		"()":                                                  "()",
+		"UserQueryService":     "UserQueryService",
+		"search() golden path": "search() golden path",
+		"()":                   "()",
 	}
 	for in, want := range cases {
 		if got := trimSignature(in); got != want {
