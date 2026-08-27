@@ -38,6 +38,33 @@ Cross-compile all platforms into `dist/`:
 The version baked into each binary comes from the nearest git tag
 (`git describe --tags --always --dirty`), or `dev` when the repo has none.
 
+### Windows
+
+`build.sh` is a bash script and will not run in `cmd.exe` or PowerShell.
+Use WSL, or build natively with plain Go:
+
+```powershell
+cd path\to\gradleTestCliViewer
+go build -o gtv.exe .\cmd\gtv
+```
+
+Requires Go 1.22+ (`go version` to check). This skips the git-tag version
+stamping that `build.sh` does, so `gtv --version` reports `dev`.
+
+Put it on `PATH`:
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\bin" | Out-Null
+Move-Item gtv.exe "$env:USERPROFILE\bin\gtv.exe" -Force
+[Environment]::SetEnvironmentVariable("Path", "$env:Path;$env:USERPROFILE\bin", "User")
+```
+
+Open a new terminal for the `PATH` change to take effect, then verify with
+`gtv --version`.
+
+Alternatively, cross-compile `dist/gtv-windows-amd64.exe` on Linux/Mac (see
+above) and copy that binary over instead of building on Windows at all.
+
 ## Uninstall
 
 Remove the installed binary and the cache directory (`~/.cache/gtv`,
