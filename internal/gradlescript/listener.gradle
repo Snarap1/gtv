@@ -1,0 +1,149 @@
+// gtv listener: streams test events as NDJSON to the file given by -Dgtv.out=<path>.
+// Applied with `gradle -I listener.gradle`; a no-op when the property is absent.
+
+import groovy.json.JsonOutput
+import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestOutputEvent
+import org.gradle.api.tasks.testing.TestOutputListener
+import org.gradle.api.tasks.testing.TestResult
+
+def outPath = System.getProperty('gtv.out')
+def forceRerun = Boolean.parseBoolean(System.getProperty('gtv.rerun', 'false'))
+def captureOutput = Boolean.parseBoolean(System.getProperty('gtv.output', 'false'))
+
+if (outPath) {
+  def sink = new File(outPath)
+  sink.parentFile?.mkdirs()
+  def writer = new PrintWriter(new OutputStreamWriter(new FileOutputStream(sink, true), 'UTF-8'))
+  def lock = new Object()
+
+  def emit = { Map event ->
+    synchronized (lock) {
+      writer.println(JsonOutput.toJson(event))
+      writer.flush()
+    }
+  }
+
+  // Descriptor instances are decorated per event, so object identity is useless.
+  // TestDescriptorInternal.getId() is stable across the events of one test and
+  // unique within a task, which the name-derived path is not: dynamic tests and
+  // overloads can produce identical sibling names.
+  def pathOf
+  pathOf = { TestDescriptor d ->
+    def self = (d.className ?: '~') + '#' + d.name
+    d.parent == null ? self : pathOf(d.parent) + '/' + self
+  }
+
+  // Ids restart per task ("1.4" appears in every module), so they are only
+  // unique once qualified by the task path.
+  def keyOf = { String taskPath, TestDescriptor d ->
+    try {
+      return taskPath + '/' + String.valueOf(d.getId())
+    } catch (Throwable ignored) {
+      return taskPath + '/' + pathOf(d)
+    }
+  }
+
+  def describe = { String taskPath, TestDescriptor d ->
+    [
+      key    : keyOf(taskPath, d),
+      parent : d.parent == null ? null : keyOf(taskPath, d.parent),
+      name   : d.name,
+      display: d.displayName,
+      cls    : d.className,
+    ]
+  }
+
+  def failureOf = { f ->
+    def det = f.details
+    [
+      msg       : det.message,
+      cls       : det.className,
+      stack     : det.stacktrace,
+      assertion : det.assertionFailure,
+      assumption: det.assumptionFailure,
+      // Populated only for opentest4j failures (JUnit assertEquals); AssertJ
+      // throws a plain AssertionError and leaves these null.
+      expected  : det.expected,
+      actual    : det.actual,
+    ]
+  }
+
+  def failuresOf = { TestResult r ->
+    r.failures.collect(failureOf)
+  }
+
+  // A skipped test is either @Disabled or an aborted assumption; only the
+  // latter carries a reason, and it lives outside getFailures().
+  def assumptionOf = { TestResult r ->
+    r.assumptionFailure == null ? null : failureOf(r.assumptionFailure)
+  }
+
+  gradle.allprojects { project ->
+    project.tasks.withType(Test).configureEach { testTask ->
+      def taskPath = testTask.path
+
+      // Gradle's --rerun is a task option: on an aggregate task such as `check`
+      // it reruns only that task, leaving the real Test task UP-TO-DATE and the
+      // run silent. Forcing it here also skips the build cache, which would
+      // otherwise replay results without emitting any events.
+      if (forceRerun) {
+        testTask.outputs.upToDateWhen { false }
+        testTask.outputs.cacheIf { false }
+      }
+
+      testTask.addTestListener(new TestListener() {
+        void beforeSuite(TestDescriptor suite) {
+          emit(describe(taskPath, suite) + [e: 'suiteStart', task: taskPath, t: System.currentTimeMillis()])
+        }
+
+        void afterSuite(TestDescriptor suite, TestResult result) {
+          emit(describe(taskPath, suite) + [
+            e       : 'suiteEnd',
+            task    : taskPath,
+            res     : result.resultType.name(),
+            start   : result.startTime,
+            end     : result.endTime,
+            total   : result.testCount,
+            ok      : result.successfulTestCount,
+            failed  : result.failedTestCount,
+            skipped : result.skippedTestCount,
+            failures: failuresOf(result),
+          ])
+        }
+
+        void beforeTest(TestDescriptor test) {
+          emit(describe(taskPath, test) + [e: 'testStart', task: taskPath, t: System.currentTimeMillis()])
+        }
+
+        void afterTest(TestDescriptor test, TestResult result) {
+          emit(describe(taskPath, test) + [
+            e       : 'testEnd',
+            task    : taskPath,
+            res     : result.resultType.name(),
+            start   : result.startTime,
+            end     : result.endTime,
+            failures: failuresOf(result),
+            assumed : assumptionOf(result),
+          ])
+        }
+      })
+
+      if (captureOutput) {
+        testTask.addTestOutputListener(new TestOutputListener() {
+          void onOutput(TestDescriptor test, TestOutputEvent event) {
+            emit([
+              e   : 'out',
+              task: taskPath,
+              key : keyOf(taskPath, test),
+              dst : event.destination.name(),
+              msg : event.message,
+            ])
+          }
+        })
+      }
+    }
+  }
+}
