@@ -9,11 +9,6 @@ import (
 	"github.com/pavelnaibich/gtv/internal/model"
 )
 
-// Live redraws a bounded tail of finished tests as events arrive, using
-// carriage-return/erase-line ANSI codes rather than an alt-screen — the
-// terminal's own scrollback stays usable. It keeps its own tree, built from
-// the same events the runner folds into its result tree, since OnEvent only
-// hands over one event at a time.
 type Live struct {
 	w        io.Writer
 	color    bool
@@ -22,13 +17,10 @@ type Live struct {
 	drawn    int
 }
 
-// NewLive returns a Live renderer. maxLines bounds how many finished tests
-// stay visible above the running summary line.
 func NewLive(w io.Writer, color bool, maxLines int) *Live {
 	return &Live{w: w, color: color, maxLines: maxLines, tree: model.New()}
 }
 
-// Handle folds one event into the live tree and redraws.
 func (l *Live) Handle(e event.Event) {
 	l.tree.Apply(e)
 	l.redraw()
@@ -76,8 +68,6 @@ func liveSummary(c model.Counts) string {
 	return strings.Join(parts, ", ")
 }
 
-// Finish erases the live progress area so the final static render can take
-// its place cleanly.
 func (l *Live) Finish() {
 	if l.drawn == 0 {
 		return

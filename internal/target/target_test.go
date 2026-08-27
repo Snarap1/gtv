@@ -8,20 +8,10 @@ import (
 	"time"
 )
 
-// buildFixture lays out a fake multi-module Gradle repo:
-//
-//	root/build.gradle
-//	root/src/test/java/RootTest.java              (no package)
-//	root/moduleA/build.gradle
-//	root/moduleA/src/test/java/com/example/FooTest.java   (package com.example)
-//	root/moduleB/build.gradle.kts
-//	root/moduleB/src/test/kotlin/com/other/FooTest.kt     (package com.other)
-//	root/moduleC/build.gradle
-//	root/moduleC/src/test/java/com/example/BarTest.java   (package com.example)
 func buildFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	// Isolate the on-disk index cache to this test.
+
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, ".cache"))
 
 	write := func(rel, content string) {
@@ -168,8 +158,6 @@ func TestResolveNotFound(t *testing.T) {
 	}
 }
 
-// A cache built on one run must pick up a class added after it, without
-// --reindex, because adding a file touches its parent directory's mtime.
 func TestIndexCachePicksUpNewFile(t *testing.T) {
 	root := buildFixture(t)
 
@@ -177,8 +165,6 @@ func TestIndexCachePicksUpNewFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// mtimes have second resolution on some filesystems; make sure the new
-	// file's directory mtime is observably later than the cached one.
 	time.Sleep(1100 * time.Millisecond)
 
 	newFile := filepath.Join(root, "moduleC", "src", "test", "java", "com", "example", "BazTest.java")

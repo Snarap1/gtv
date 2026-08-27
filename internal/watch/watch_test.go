@@ -23,7 +23,6 @@ func TestUntilRerunsOnChange(t *testing.T) {
 		t.Fatal("Until did not run immediately")
 	}
 
-	// mtimes commonly have 1s resolution; make sure the write is observably later.
 	time.Sleep(1100 * time.Millisecond)
 	if err := os.WriteFile(file, []byte("v2"), 0o644); err != nil {
 		t.Fatal(err)
@@ -39,8 +38,7 @@ func TestUntilRerunsOnChange(t *testing.T) {
 func TestSnapshotIgnoresSkippedDirs(t *testing.T) {
 	dir := t.TempDir()
 	buildDir := filepath.Join(dir, "build")
-	// build/ itself must exist before the baseline snapshot: creating it here
-	// would touch dir's own mtime, which snapshot does observe.
+
 	if err := os.MkdirAll(buildDir, 0o755); err != nil {
 		t.Fatal(err)
 	}

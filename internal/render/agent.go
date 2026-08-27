@@ -9,23 +9,20 @@ import (
 	"github.com/pavelnaibich/gtv/internal/model"
 )
 
-// Options tune how much detail the agent renderer emits.
 type Options struct {
-	MaxFailures int  // failures printed in full before collapsing to a count
-	MaxSkipped  int  // skipped tests listed before collapsing to a count
-	MaxMsgLines int  // lines of a failure message
-	MaxFrames   int  // stack frames per failure
-	ShowOutput  bool // print captured stdout/stderr of failed tests
-	OutputLines int  // lines of captured output per failed test
+	MaxFailures int
+	MaxSkipped  int
+	MaxMsgLines int
+	MaxCauses   int
+	MaxFrames   int
+	ShowOutput  bool
+	OutputLines int
 }
 
-// DefaultOptions is tuned for a coding agent reading the output: a green run is
-// a single line, a red one carries only what is needed to locate the defect.
 func DefaultOptions() Options {
-	return Options{MaxFailures: 10, MaxSkipped: 5, MaxMsgLines: 6, MaxFrames: 3, OutputLines: 10}
+	return Options{MaxFailures: 10, MaxSkipped: 5, MaxMsgLines: 6, MaxCauses: 2, MaxFrames: 3, OutputLines: 10}
 }
 
-// Agent writes the compact, token-frugal report.
 func Agent(w io.Writer, t *model.Tree, opts Options) {
 	c := t.Counts()
 	status := "PASS"
@@ -63,8 +60,6 @@ func summary(c model.Counts, durMs int64) string {
 	return fmt.Sprintf("%s (%s)", strings.Join(parts, ", "), Duration(durMs))
 }
 
-// Duration formats milliseconds the way a test runner should: never more than
-// one fractional digit, never scientific.
 func Duration(ms int64) string {
 	switch {
 	case ms < 1000:
@@ -97,6 +92,9 @@ func writeFailure(w io.Writer, n *model.Node, opts Options) {
 		if wantsDiff(f) {
 			fmt.Fprintf(w, "  expected: %s\n  actual:   %s\n", f.Expected, f.Actual)
 		}
+		for _, c := range Causes(f.Stack, opts.MaxCauses) {
+			fmt.Fprintf(w, "  caused by: %s\n", c)
+		}
 		if frames := Frames(f.Stack, opts.MaxFrames); len(frames) > 0 {
 			fmt.Fprintf(w, "  %s\n", strings.Join(frames, " <- "))
 		}
@@ -108,9 +106,6 @@ func writeFailure(w io.Writer, n *model.Node, opts Options) {
 	}
 }
 
-// wantsDiff reports whether the structured expected/actual pair adds anything
-// the message did not already say. opentest4j failures render as
-// "expected: <42> but was: <7>", so repeating both values is noise.
 func wantsDiff(f event.Fail) bool {
 	if f.Expected == "" && f.Actual == "" {
 		return false
@@ -125,8 +120,7 @@ func writeSkipped(w io.Writer, skipped []*model.Node, opts Options) {
 	}
 	for _, n := range shown {
 		line := "~ " + strings.Join(n.Path(), " > ")
-		// Gradle reports @Disabled and an aborted assumption alike; only the
-		// assumption carries a reason.
+
 		if n.Assumed != nil {
 			if msg := strings.TrimSpace(n.Assumed.Msg); msg != "" {
 				line += " — " + firstLine(msg)

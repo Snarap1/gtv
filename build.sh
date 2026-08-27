@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Cross-compiles gtv for linux-amd64, darwin-arm64, windows-amd64 into dist/,
-# or builds the host binary and installs it with --install.
-# Version is taken from the nearest git tag; falls back to "dev" when the repo
-# has no tags (or no commits) to describe.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -52,7 +48,6 @@ if [[ "${uninstall}" -eq 1 ]]; then
   else
     echo "not installed at ${dest}"
   fi
-  # Also drop a Windows-style name if someone used a custom prefix on Wine/WSL.
   if [[ -e "${dest}.exe" || -L "${dest}.exe" ]]; then
     rm -f "${dest}.exe"
     echo "removed ${dest}.exe"

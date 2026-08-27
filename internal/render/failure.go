@@ -7,7 +7,6 @@ import (
 	"github.com/pavelnaibich/gtv/internal/event"
 )
 
-// ShortClass drops the package from an exception class name.
 func ShortClass(fqn string) string {
 	if i := strings.LastIndex(fqn, "."); i >= 0 {
 		return fqn[i+1:]
@@ -15,9 +14,6 @@ func ShortClass(fqn string) string {
 	return fqn
 }
 
-// Headline is the one-or-few-line description of a failure: "AssertionError:
-// Expected size: 5 but was: 3". AssertJ messages start with a newline and carry
-// the useful detail across several lines, so keep up to maxLines of them.
 func Headline(f event.Fail, maxLines int) []string {
 	msg := strings.TrimSpace(f.Msg)
 	cls := ShortClass(f.Cls)
@@ -40,8 +36,42 @@ func Headline(f event.Fail, maxLines int) []string {
 	return lines
 }
 
-// Kotlin method names can contain spaces, so the frame regex cannot assume an
-// identifier before the parenthesis.
+var causeRe = regexp.MustCompile(`^\s*Caused by:\s+([^\s:]+)(?::\s*(.*))?$`)
+
+func Causes(stack string, max int) []string {
+	var chain []string
+	for _, line := range strings.Split(stack, "\n") {
+		m := causeRe.FindStringSubmatch(strings.TrimRight(line, "\r"))
+		if m == nil {
+			continue
+		}
+		text := ShortClass(m[1])
+		if msg := strings.TrimSpace(m[2]); msg != "" {
+			text += ": " + msg
+		}
+		chain = append(chain, text)
+	}
+	if len(chain) == 0 {
+		return nil
+	}
+
+	var kept []string
+	for i := len(chain) - 1; i >= 0; i-- {
+		if len(kept) > 0 && strings.Contains(chain[i], kept[len(kept)-1]) {
+			continue
+		}
+		kept = append(kept, chain[i])
+		if max > 0 && len(kept) == max {
+			break
+		}
+	}
+
+	for l, r := 0, len(kept)-1; l < r; l, r = l+1, r-1 {
+		kept[l], kept[r] = kept[r], kept[l]
+	}
+	return kept
+}
+
 var frameRe = regexp.MustCompile(`^\s*at\s+(.+)\(([^()]*)\)\s*$`)
 
 var noisyPrefix = []string{
@@ -49,8 +79,6 @@ var noisyPrefix = []string{
 	"org.junit", "junit.", "org.gradle", "worker.org.gradle", "org.mockito", "io.mockk.impl",
 }
 
-// Frames extracts the source locations worth showing, closest to the failure
-// first. Gradle already strips most framework noise; this drops what is left.
 func Frames(stack string, max int) []string {
 	var out []string
 	for _, line := range strings.Split(stack, "\n") {
@@ -60,7 +88,7 @@ func Frames(stack string, max int) []string {
 		}
 		owner, loc := m[1], m[2]
 		if !strings.Contains(loc, ":") {
-			continue // "Native Method", "Unknown Source"
+			continue
 		}
 		if hasAnyPrefix(owner, noisyPrefix) {
 			continue
@@ -82,7 +110,6 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-// TailLines returns the last n non-empty lines of captured test output.
 func TailLines(chunks []string, n int) []string {
 	var lines []string
 	for _, c := range chunks {

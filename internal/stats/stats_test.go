@@ -28,7 +28,7 @@ func TestTokensAndSaved(t *testing.T) {
 func TestRecordPersistsAndAccumulates(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(dir, ".cache"))
-	// Reset session so other tests' Record calls do not leak in.
+
 	sessionMu.Lock()
 	session = Snapshot{}
 	sessionMu.Unlock()

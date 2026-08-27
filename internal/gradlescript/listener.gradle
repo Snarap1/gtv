@@ -1,5 +1,4 @@
-// gtv listener: streams test events as NDJSON to the file given by -Dgtv.out=<path>.
-// Applied with `gradle -I listener.gradle`; a no-op when the property is absent.
+
 
 import groovy.json.JsonOutput
 import org.gradle.api.tasks.testing.Test
@@ -26,18 +25,18 @@ if (outPath) {
     }
   }
 
-  // Descriptor instances are decorated per event, so object identity is useless.
-  // TestDescriptorInternal.getId() is stable across the events of one test and
-  // unique within a task, which the name-derived path is not: dynamic tests and
-  // overloads can produce identical sibling names.
+
+
+
+
   def pathOf
   pathOf = { TestDescriptor d ->
     def self = (d.className ?: '~') + '#' + d.name
     d.parent == null ? self : pathOf(d.parent) + '/' + self
   }
 
-  // Ids restart per task ("1.4" appears in every module), so they are only
-  // unique once qualified by the task path.
+
+
   def keyOf = { String taskPath, TestDescriptor d ->
     try {
       return taskPath + '/' + String.valueOf(d.getId())
@@ -56,6 +55,20 @@ if (outPath) {
     ]
   }
 
+
+
+
+
+  def probe = { obj, String name ->
+    try {
+      return obj."$name"
+    } catch (MissingPropertyException ignored) {
+      return null
+    } catch (groovy.lang.MissingMethodException ignored) {
+      return null
+    }
+  }
+
   def failureOf = { f ->
     def det = f.details
     [
@@ -63,9 +76,9 @@ if (outPath) {
       cls       : det.className,
       stack     : det.stacktrace,
       assertion : det.assertionFailure,
-      assumption: det.assumptionFailure,
-      // Populated only for opentest4j failures (JUnit assertEquals); AssertJ
-      // throws a plain AssertionError and leaves these null.
+      assumption: probe(det, 'assumptionFailure'),
+
+
       expected  : det.expected,
       actual    : det.actual,
     ]
@@ -75,20 +88,21 @@ if (outPath) {
     r.failures.collect(failureOf)
   }
 
-  // A skipped test is either @Disabled or an aborted assumption; only the
-  // latter carries a reason, and it lives outside getFailures().
+
+
   def assumptionOf = { TestResult r ->
-    r.assumptionFailure == null ? null : failureOf(r.assumptionFailure)
+    def af = probe(r, 'assumptionFailure')
+    af == null ? null : failureOf(af)
   }
 
   gradle.allprojects { project ->
     project.tasks.withType(Test).configureEach { testTask ->
       def taskPath = testTask.path
 
-      // Gradle's --rerun is a task option: on an aggregate task such as `check`
-      // it reruns only that task, leaving the real Test task UP-TO-DATE and the
-      // run silent. Forcing it here also skips the build cache, which would
-      // otherwise replay results without emitting any events.
+
+
+
+
       if (forceRerun) {
         testTask.outputs.upToDateWhen { false }
         testTask.outputs.cacheIf { false }
