@@ -22,17 +22,28 @@ import (
 const usage = `gtv — Gradle test runner with readable output
 
 usage: gtv [flags] <target> [gradle args...]
+       gtv compile <module> [gradle args...]
+       gtv build [gradle args...]
        gtv --stats
        gtv stats
 
 <target> is a Gradle task path, a class name/FQN, a path to a test file, or
 "Class.method" / "Class::method".
 
+"compile <module>" builds one module without running its tests
+(<module>:build -x test); <module> is a Gradle module path, class name/FQN,
+or source file, same resolution as <target> minus the method part.
+
+"build" runs the whole project's "build" task from the repo root.
+
 examples:
   gtv UserServiceTest
   gtv UserServiceTest.should pass
   gtv :app:service:test --tests "*.UserServiceTest"
   gtv :lib:test
+  gtv compile UserServiceTest
+  gtv compile :app:service
+  gtv build
   gtv --stats
 
 flags:`
@@ -83,6 +94,17 @@ func main() {
 	tty := isTTY(os.Stdout)
 	human := wantHuman(*forceAgent, *forceHuman, tty)
 	color := human && wantColor(tty)
+
+	if flag.Arg(0) == "compile" {
+		if flag.NArg() < 2 {
+			fmt.Fprintln(os.Stderr, "gtv: compile requires a module argument, e.g. gtv compile :app:service")
+			os.Exit(2)
+		}
+		os.Exit(runCompile(flag.Args()[1:], *javaMajor, *reindex, *gradleOutput, human, color, opts))
+	}
+	if flag.Arg(0) == "build" {
+		os.Exit(runBuild(flag.Args()[1:], *javaMajor, *gradleOutput, human, color, opts))
+	}
 
 	runOnce := func() int {
 		if *last {
@@ -198,6 +220,105 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 		fmt.Fprint(os.Stderr, indent(reason(res.GradleOutput)))
 	}
 	return res.ExitCode
+}
+
+func runCompile(args []string, javaMajor int, reindex, alwaysShowGradle, human, color bool, opts render.Options) int {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fatal(err)
+	}
+	root, err := runner.FindGradleRoot(cwd)
+	if err != nil {
+		return fatal(err)
+	}
+	jdk, err := runner.FindJavaHome(javaMajor)
+	if err != nil {
+		return fatal(err)
+	}
+
+	module, cands, err := target.ResolveModule(root, args[0], reindex)
+	if err != nil {
+		if errors.Is(err, target.ErrAmbiguous) {
+			var b strings.Builder
+			fmt.Fprintf(&b, "%v:\n", err)
+			for _, c := range cands {
+				fmt.Fprintf(&b, "  %s (%s)\n", c.FQN, c.File)
+			}
+			return fatal(errors.New(strings.TrimRight(b.String(), "\n")))
+		}
+		return fatal(err)
+	}
+
+	gradleArgs := append([]string{module + ":build", "-x", "test"}, args[1:]...)
+	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, human, color, opts, "COMPILE "+module)
+}
+
+func runBuild(args []string, javaMajor int, alwaysShowGradle, human, color bool, opts render.Options) int {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fatal(err)
+	}
+	root, err := runner.FindGradleRoot(cwd)
+	if err != nil {
+		return fatal(err)
+	}
+	jdk, err := runner.FindJavaHome(javaMajor)
+	if err != nil {
+		return fatal(err)
+	}
+
+	gradleArgs := append([]string{"build"}, args...)
+	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, human, color, opts, "BUILD")
+}
+
+// runGradleTask drives a non-test Gradle task (compile/build). Such tasks may
+// still run tests transitively (e.g. "build" depends on "check" -> "test"),
+// so a populated Tree is rendered exactly like a normal test run; an empty
+// Tree just gets a compact OK/FAILED line, never NOTESTS - zero tests is the
+// expected, successful outcome for a plain compile.
+func runGradleTask(root, javaHome string, gradleArgs []string, alwaysShowGradle, human, color bool, opts render.Options, label string) int {
+	cfg := runner.Config{Root: root, JavaHome: javaHome, Args: gradleArgs, CaptureOutput: opts.ShowOutput}
+
+	var live *render.Live
+	if human && isTTY(os.Stdout) {
+		live = render.NewLive(os.Stdout, color, 12)
+		cfg.OnEvent = live.Handle
+	}
+
+	res, err := runner.Execute(cfg)
+	if live != nil {
+		live.Finish()
+	}
+	if err != nil {
+		return fatal(err)
+	}
+
+	switch {
+	case res.Tree.Counts().Total > 0:
+		if err := writeReport(res.Tree, false, human, color, opts); err != nil {
+			return fatal(err)
+		}
+		recordSavings(root, res.GradleBytes, res.Tree, opts)
+	case res.ExitCode == 0:
+		fmt.Printf("%s OK\n", label)
+	default:
+		fmt.Printf("%s FAILED\n", label)
+		fmt.Print(indent(reason(res.GradleOutput)))
+	}
+	if alwaysShowGradle {
+		fmt.Print(indent(res.GradleOutput))
+	}
+
+	if res.Tree.Counts().Failed > 0 {
+		return 1
+	}
+	if res.ExitCode != 0 {
+		if res.Tree.Counts().Total > 0 {
+			fmt.Fprint(os.Stderr, indent(reason(res.GradleOutput)))
+		}
+		return res.ExitCode
+	}
+	return 0
 }
 
 func recordSavings(root string, gradleBytes int64, tree *model.Tree, opts render.Options) {

@@ -52,6 +52,21 @@ func Resolve(root, arg string, reindex bool) (Target, []Candidate, error) {
 	return Target{}, cands, err
 }
 
+// ResolveModule resolves arg to a Gradle module path (":a:b", "" for the root
+// project) rather than a test task. Unlike Resolve, it does not try
+// Class.method splitting: a compile/build target names a module, class, FQN,
+// or source file, never a test method.
+func ResolveModule(root, arg string, reindex bool) (string, []Candidate, error) {
+	if strings.HasPrefix(arg, ":") {
+		return strings.TrimSuffix(arg, ":test"), nil, nil
+	}
+	task, _, cands, err := resolveClass(root, arg, reindex)
+	if err != nil {
+		return "", cands, err
+	}
+	return strings.TrimSuffix(task, ":test"), nil, nil
+}
+
 type methodTarget struct{ class, method string }
 
 func splitMethods(arg string) []methodTarget {

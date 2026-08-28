@@ -1,6 +1,6 @@
 ---
 name: gtv
-description: Run Gradle tests through the `gtv` CLI instead of `./gradlew test`, and read its compact report. Use whenever a task needs Gradle/JUnit tests actually run and their result reported - "run the tests", "прогони UserServiceTest", one class or one `Class.method`, a module's `:app:test`, a rerun after an edit, checking nothing broke before a commit or MR, or diagnosing and fixing a red test. Use it too when a failure's message is only a wrapper - "Failed to load ApplicationContext", a Mockito verification error - and the real cause has to be dug out. Covers target syntax (class name, `Class.method`, task path, file path), the PASS/FAIL/NOTESTS output, exit codes, cause chains, and the `--last`, `--watch`, `--json`, `--test-output` flags. Not for non-Gradle runners (Maven, npm, pytest), not for authoring new tests, and not for non-test Gradle work - `build`, `bootJar`, dependency resolution, or a compile error with no test in play.
+description: Run Gradle tests, compiles, and builds through the `gtv` CLI instead of `./gradlew`, and read its compact report. Use whenever a task needs Gradle/JUnit tests actually run and their result reported - "run the tests", "прогони UserServiceTest", one class or one `Class.method`, a module's `:app:test`, a rerun after an edit, checking nothing broke before a commit or MR, or diagnosing and fixing a red test. Use it too for compile-only checks after editing code - "does it compile", "собери модуль", "build the project", `gtv compile <module>` / `gtv build` instead of `./gradlew build` - and when a failure's message is only a wrapper - "Failed to load ApplicationContext", a Mockito verification error - and the real cause has to be dug out. Covers target syntax (class name, `Class.method`, task path, file path), the PASS/FAIL/NOTESTS and COMPILE/BUILD output, exit codes, cause chains, and the `--last`, `--watch`, `--json`, `--test-output` flags. Not for non-Gradle runners (Maven, npm, pytest), not for authoring new tests, and not for other Gradle work - `bootJar`, dependency resolution, publishing.
 license: MIT
 ---
 
@@ -26,6 +26,8 @@ Just run it. If the shell answers `command not found`, fall back to
 
 ```
 gtv [flags] <target> [extra gradle args...]
+gtv [flags] compile <module> [extra gradle args...]
+gtv [flags] build [extra gradle args...]
 ```
 
 **Flags go before the target.** Argument parsing stops at the first non-flag
@@ -47,6 +49,38 @@ never sees it).
 Method names with spaces (Kotlin backticked names, `@DisplayName`) need no
 quoting - trailing args are joined. Quote them if they contain shell
 metacharacters.
+
+## Compiling and building
+
+Two subcommands cover non-test Gradle work. **Use them instead of
+`./gradlew build`** - same reason as for tests: they print a line, not a log.
+
+```
+gtv compile <module> [gradle args...]   # <module>:build -x test
+gtv build [gradle args...]              # whole-project build, from the repo root
+```
+
+`<module>` resolves like `<target>` above minus the `Class.method` form - a
+compile target names a module, so `gtv compile UserServiceTest` and
+`gtv compile app/src/main/kotlin/.../UserService.kt` both mean the module that
+file lives in, and `gtv compile :app:service` says it directly.
+
+Output is one line on success:
+
+```
+COMPILE :app:service OK
+BUILD OK
+```
+
+On failure it is `COMPILE <module> FAILED` / `BUILD FAILED` plus the same
+trimmed `File.kt:56 message` diagnostics a failed test run gives - never raw
+Gradle console. If the task ran tests transitively (`build` -> `check` ->
+`test`), the normal test tree is rendered instead of the OK line.
+
+Zero tests here is success, not `NOTESTS`.
+
+Reach for `gtv compile <module>` after editing production code when no test
+needs to run yet; it is much faster than the module's test task.
 
 ## Reading the output
 
@@ -153,4 +187,4 @@ FQN.
   `2`. Use the project's own test command.
 - `gtv` not installed: build it from its repo with `./build.sh --install`
   (installs to `~/.local/bin`), or fall back to
-  `./gradlew :module:test --tests "*ClassName*"`.
+  `./gradlew :module:test --tests "*ClassName*"` / `./gradlew :module:build -x test`.

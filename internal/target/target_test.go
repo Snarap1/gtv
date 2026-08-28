@@ -158,6 +158,76 @@ func TestResolveNotFound(t *testing.T) {
 	}
 }
 
+func TestResolveModuleTaskPathAsIs(t *testing.T) {
+	root := buildFixture(t)
+	mod, cands, err := ResolveModule(root, ":a:b", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cands != nil {
+		t.Fatalf("candidates = %v, want nil", cands)
+	}
+	if mod != ":a:b" {
+		t.Fatalf("module = %q, want %q", mod, ":a:b")
+	}
+}
+
+func TestResolveModuleTaskPathStripsTestSuffix(t *testing.T) {
+	root := buildFixture(t)
+	mod, _, err := ResolveModule(root, ":a:b:test", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mod != ":a:b" {
+		t.Fatalf("module = %q, want %q", mod, ":a:b")
+	}
+}
+
+func TestResolveModuleFromClassName(t *testing.T) {
+	root := buildFixture(t)
+	mod, _, err := ResolveModule(root, "BarTest", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mod != ":moduleC" {
+		t.Fatalf("module = %q, want %q", mod, ":moduleC")
+	}
+}
+
+func TestResolveModuleFromSourceFile(t *testing.T) {
+	root := buildFixture(t)
+	arg := filepath.Join(root, "moduleA", "src", "test", "java", "com", "example", "FooTest.java")
+	mod, _, err := ResolveModule(root, arg, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mod != ":moduleA" {
+		t.Fatalf("module = %q, want %q", mod, ":moduleA")
+	}
+}
+
+func TestResolveModuleRoot(t *testing.T) {
+	root := buildFixture(t)
+	mod, _, err := ResolveModule(root, "RootTest", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mod != "" {
+		t.Fatalf("module = %q, want empty (root project)", mod)
+	}
+}
+
+func TestResolveModuleAmbiguous(t *testing.T) {
+	root := buildFixture(t)
+	_, cands, err := ResolveModule(root, "FooTest", false)
+	if !errors.Is(err, ErrAmbiguous) {
+		t.Fatalf("err = %v, want ErrAmbiguous", err)
+	}
+	if len(cands) != 2 {
+		t.Fatalf("candidates = %v, want 2", cands)
+	}
+}
+
 func TestIndexCachePicksUpNewFile(t *testing.T) {
 	root := buildFixture(t)
 

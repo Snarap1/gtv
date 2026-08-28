@@ -128,6 +128,26 @@ gtv :app:service:test --tests "*.UserServiceTest"
 gtv :lib:test
 ```
 
+### Compile and build
+
+`gtv compile <module>` builds one module without running its tests
+(`<module>:build -x test`). `<module>` resolves the same way as `<target>`
+above (a Gradle module path, class name/FQN, or source file), minus the
+`Class.method` part - a compile target names a module, not a test.
+
+`gtv build` runs the whole project's `build` task from the repo root.
+
+```
+gtv compile UserServiceTest
+gtv compile :app:service
+gtv build
+```
+
+Both print a compact `COMPILE <module> OK`/`BUILD OK` line on success, and
+extract the same trimmed compile-error diagnostics as a failed test run does
+on failure - no raw Gradle console noise. If the task happens to run tests
+too (e.g. `build` by way of `check`), the usual test tree is rendered instead.
+
 ### Flags
 
 | Flag             | Effect                                                            |

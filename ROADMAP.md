@@ -217,6 +217,33 @@ internal/stats/stats.go     Record/Load/Format, ~/.cache/gtv/stats.json
 
 ---
 
+## M7 — compile/build без тестов (закрыт)
+
+```
+internal/target/target.go    ResolveModule: аргумент -> модульный путь (без ":test")
+cmd/gtv/main.go              runCompile/runBuild/runGradleTask
+```
+
+- [x] `gtv compile <module>`: `<module>:build -x test` — полный build модуля
+      (assemble, resources, прочие check-таски) без прогона теста. `<module>`
+      резолвится как обычный `<target>`, но без разбора `Class.method` (цель
+      компиляции — модуль, не тест).
+- [x] `gtv build`: `build` от корня репозитория, весь проект.
+- [x] `ResolveModule` переиспользует `resolveClass` (класс/FQN/путь к файлу),
+      отличие от `Resolve` — не пробует `Class.method`, и отрезает `:test` суффикс.
+- [x] `runGradleTask`: если Tree.Total > 0 (например, `build` дотянул `test` через
+      `check`) — обычный тестовый рендер; если 0 — короткая строка `OK`/`FAILED`,
+      NOTESTS здесь не подходит: пустое дерево на успешном компиляции — норма,
+      а не ошибка.
+- [x] на неудаче переиспользуются `reason()`/`compileErrors()` — тот же
+      компактный разбор `e:`/`javac error:`, что и в обычном прогоне тестов.
+- [x] тесты `ResolveModule` на той же фикстуре, что `Resolve` (`target_test.go`).
+
+`go build`, `go vet`, `go test ./...` зелёные.
+
+**DoD**: `gtv compile :app:service` компилирует модуль и печатает
+`COMPILE :app:service OK`/`FAILED`; `gtv build` собирает весь проект.
+
 ## Известные факты (проверены, не переоткрывать)
 
 - `TestDescriptor.getDisplayName()` есть в Gradle 9.2 и отдаёт `@DisplayName` класса,

@@ -39,6 +39,19 @@
         "Answer reports the pass/fail counts (54/56 ok, 2 fail)",
         "Answer does not paste raw Gradle console output"
       ]
+    },
+    {
+      "id": 3,
+      "name": "compile-only-check",
+      "prompt": "Я поправил TaskCategoryService.kt. Проверь, что модуль вообще компилируется, тесты гонять не надо.",
+      "expected_output": "Runs gtv compile on the module (or gtv build), reports the COMPILE ... OK / FAILED line without running tests.",
+      "files": [],
+      "assertions": [
+        "Used gtv for the compile check (commands.log shows `gtv compile ...` or `gtv build`), not `./gradlew build` or `./gradlew compileKotlin`",
+        "Did not run a test task",
+        "Answer reports the compile result plainly (OK, or the trimmed File.kt:line diagnostics on failure)",
+        "No source file was modified (diff.patch is empty)"
+      ]
     }
   ]
 }
