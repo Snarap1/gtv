@@ -147,6 +147,10 @@ usually collapses to the one line worth reading. What is still capped:
 A compile failure prints trimmed diagnostics as `File.kt:56 message`. Fix those
 first - the test report is empty and meaningless until the build compiles.
 
+When the exit-2 cause is a missing JDK, `gtv java` prints the JDK home gtv
+would pick - or the same error - without running Gradle. Flags go before the
+subcommand: `gtv --java 17 java`.
+
 An ambiguous target lists every candidate FQN; pick one and rerun with the full
 FQN.
 

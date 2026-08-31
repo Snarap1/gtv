@@ -24,6 +24,7 @@ const usage = `gtv — Gradle test runner with readable output
 usage: gtv [flags] <target> [gradle args...]
        gtv compile <module> [gradle args...]
        gtv build [gradle args...]
+       gtv java
        gtv --stats
        gtv stats
 
@@ -36,6 +37,9 @@ or source file, same resolution as <target> minus the method part.
 
 "build" runs the whole project's "build" task from the repo root.
 
+"java" prints the JDK home path gtv builds with and exits; flags go
+before the subcommand (gtv --java 17 java).
+
 examples:
   gtv UserServiceTest
   gtv UserServiceTest.should pass
@@ -44,6 +48,7 @@ examples:
   gtv compile UserServiceTest
   gtv compile :app:service
   gtv build
+  gtv java
   gtv --stats
 
 flags:`
@@ -94,6 +99,14 @@ func main() {
 	tty := isTTY(os.Stdout)
 	human := wantHuman(*forceAgent, *forceHuman, tty)
 	color := human && wantColor(tty)
+
+	if flag.Arg(0) == "java" {
+		if flag.NArg() > 1 {
+			fmt.Fprintln(os.Stderr, "gtv: java takes no arguments; put flags before the subcommand, e.g. gtv --java 17 java")
+			os.Exit(2)
+		}
+		os.Exit(runJava(*javaMajor))
+	}
 
 	if flag.Arg(0) == "compile" {
 		if flag.NArg() < 2 {
@@ -220,6 +233,15 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 		fmt.Fprint(os.Stderr, indent(reason(res.GradleOutput)))
 	}
 	return res.ExitCode
+}
+
+func runJava(minMajor int) int {
+	jdk, err := runner.FindJavaHome(minMajor)
+	if err != nil {
+		return fatal(err)
+	}
+	fmt.Println(jdk.Home)
+	return 0
 }
 
 func runCompile(args []string, javaMajor int, reindex, alwaysShowGradle, human, color bool, opts render.Options) int {

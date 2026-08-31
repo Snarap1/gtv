@@ -137,6 +137,12 @@ above (a Gradle module path, class name/FQN, or source file), minus the
 
 `gtv build` runs the whole project's `build` task from the repo root.
 
+`gtv java` prints the JDK home path gtv discovered (the same one Gradle
+runs with) and exits without touching Gradle - handy for
+`export JAVA_HOME=$(gtv java)`. `--java N` applies, but flags go before
+the subcommand (`gtv --java 17 java`); exit code 2 with the reason on
+stderr when nothing suitable is found.
+
 ```
 gtv compile UserServiceTest
 gtv compile :app:service
