@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"io"
+	"os"
+	"strings"
+	"testing"
+)
 
 const kotlinCompileLog = `> Task :m:compileTestKotlin FAILED
 e: file:///home/u/repo/src/test/kotlin/com/mm/GtvProbeTest.kt:50:33 Return type mismatch: expected 'Int', actual 'String'.
@@ -53,5 +58,61 @@ func TestCompileErrorsHandlesJavac(t *testing.T) {
 	got := compileErrors(log)
 	if len(got) != 1 || got[0] != "Foo.java:12 cannot find symbol" {
 		t.Fatalf("compileErrors = %q", got)
+	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	fn()
+	w.Close()
+	os.Stderr = orig
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestHintsAreCompleteCommands(t *testing.T) {
+	cases := []struct {
+		name string
+		fn   func()
+		want string
+	}{
+		{
+			name: "resolveTargetHint",
+			fn:   func() { resolveTargetHint("UserServiceTest") },
+			want: "hint: check the target; if the class is new or renamed, run gtv --reindex UserServiceTest\n",
+		},
+		{
+			name: "noResultsHint",
+			fn:   func() { noResultsHint(":m:test") },
+			want: "hint: run gtv :m:test (without --last) to produce results\n",
+		},
+		{
+			name: "noTestsHint",
+			fn:   func() { noTestsHint(":m:test") },
+			want: "hint: check the target/filter; for a newly added class run gtv --reindex :m:test\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := captureStderr(t, tc.fn); got != tc.want {
+				t.Errorf("hint = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHintsGoToStderr(t *testing.T) {
+	got := captureStderr(t, func() { noResultsHint(":m:test") })
+	if !strings.HasPrefix(got, "hint: ") {
+		t.Errorf("hint = %q, want stderr output with \"hint: \" prefix", got)
 	}
 }

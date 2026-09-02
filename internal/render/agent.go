@@ -17,6 +17,7 @@ type Options struct {
 	MaxFrames   int
 	ShowOutput  bool
 	OutputLines int
+	Target      string
 }
 
 func DefaultOptions() Options {
@@ -42,6 +43,9 @@ func Agent(w io.Writer, t *model.Tree, opts Options) {
 	}
 	if rest := len(failed) - len(shown); rest > 0 {
 		fmt.Fprintf(w, "  +%d more failures\n", rest)
+		if opts.Target != "" {
+			fmt.Fprintf(w, "  hint: gtv %s --max-fail 0 shows all %d failures\n", opts.Target, len(failed))
+		}
 	}
 
 	if len(skipped) > 0 {
