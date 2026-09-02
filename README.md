@@ -3,6 +3,10 @@
 [![CI](https://github.com/Snarap1/gtv/actions/workflows/ci.yml/badge.svg)](https://github.com/Snarap1/gtv/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Snarap1/gtv)](https://github.com/Snarap1/gtv/releases/latest)
 
+<p align="center">
+  <img src="docs/demo.gif" alt="Raw Gradle test output next to gtv's compact live view, followed by gtv's grouped report and failure details" width="800">
+</p>
+
 
 `gtv` runs `./gradlew test` and shows results the way a person or a coding
 agent actually wants them: grouped by `@DisplayName`/`@Nested`, with a
