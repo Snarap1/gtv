@@ -203,6 +203,11 @@ UserServiceTest: 3/4 ok, 1 failed (34ms)
     at com.example.UserServiceTest.shouldRejectInvalidId(UserServiceTest.kt:42)
 ```
 
+When a report is capped or a run matches nothing, a one-line `hint:` names
+the complete next command - the full failure list, a reindex for a freshly
+added class, or a rerun without `--last`. Hints go to stderr and never
+appear on a fully self-contained report.
+
 When the thrown exception only wraps the real one, the `Caused by` chain is
 mined for the link that explains the failure — a Spring context that will not
 start names the rejected credential instead of just saying it failed to start:

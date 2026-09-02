@@ -179,8 +179,14 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 
 	gradleArgs, err := resolveArgs(root, args, reindex)
 	if err != nil {
+		if errors.Is(err, target.ErrNotFound) && len(args) > 0 {
+			exit := fatal(err)
+			resolveTargetHint(args[0])
+			return exit
+		}
 		return fatal(err)
 	}
+	opts.Target = args[0]
 
 	cfg := runner.Config{Root: root, JavaHome: jdk.Home, Args: gradleArgs, ForceRerun: !noRerun, CaptureOutput: opts.ShowOutput}
 
@@ -201,6 +207,7 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 	if res.Tree.Counts().Total == 0 {
 		fmt.Printf("NOTESTS %s\n", strings.Join(args, " "))
 		fmt.Print(indent(reason(res.GradleOutput)))
+		noTestsHint(args[0])
 		return 1
 	}
 
@@ -402,6 +409,7 @@ func runLast(args []string, human, color, reindex, jsonOut bool, opts render.Opt
 	if err != nil {
 		if errors.Is(err, lastresults.ErrNoResults) {
 			fmt.Fprintf(os.Stderr, "gtv: %v: %s\n", err, dir)
+			noResultsHint(t.Task)
 			return 1
 		}
 		return fatal(err)
@@ -409,6 +417,7 @@ func runLast(args []string, human, color, reindex, jsonOut bool, opts render.Opt
 
 	if tree.Counts().Total == 0 {
 		fmt.Printf("NOTESTS %s\n", strings.Join(args, " "))
+		noTestsHint(args[0])
 		return 1
 	}
 	if err := writeReport(tree, jsonOut, human, color, opts); err != nil {
@@ -423,6 +432,31 @@ func runLast(args []string, human, color, reindex, jsonOut bool, opts render.Opt
 func fatal(err error) int {
 	fmt.Fprintln(os.Stderr, "gtv:", err)
 	return 2
+}
+
+// hintf prints a single actionable next-step hint to stderr (AXI principle 9,
+// contextual disclosure). Every hint is a complete command the agent can run,
+// never a pointer to --help.
+func hintf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "hint: "+format+"\n", args...)
+}
+
+// resolveTargetHint is the error hint when the target cannot be resolved
+// (unknown class, stale index, or missing source file).
+func resolveTargetHint(arg string) {
+	hintf("check the target; if the class is new or renamed, run gtv --reindex %s", arg)
+}
+
+// noResultsHint is the hint for `gtv --last <target>` when no previous run's
+// reports exist for the resolved task.
+func noResultsHint(task string) {
+	hintf("run gtv %s (without --last) to produce results", task)
+}
+
+// noTestsHint is the hint for NOTESTS: Gradle ran but matched zero tests,
+// which almost always means a wrong target or a typo in a --tests filter.
+func noTestsHint(targetArg string) {
+	hintf("check the target/filter; for a newly added class run gtv --reindex %s", targetArg)
 }
 
 func reason(output string) string {

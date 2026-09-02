@@ -104,11 +104,17 @@ FAIL :app:test  11/12 ok, 1 fail (3.6s)
   omits them, then `caused by:` for a wrapped exception, then up to 3 source
   frames joined by `<-`.
 - `~` a skipped test; text after the dash is the assumption reason, if any.
-- `+N more failures` / `+N more skipped` - the report was capped; raise with
-  `--max-fail 0`.
+- `+N more failures` / `+N more skipped` - the report was capped. When it
+  matters, a `hint:` line names the exact command that lifts the cap, e.g.
+  `hint: gtv :app:test --max-fail 0 shows all 14 failures`.
 - `NOTESTS <args>` - Gradle ran but matched zero tests. This is not a passing
   run: it almost always means a wrong target or a typo in a `--tests` filter.
-  Re-check the class name, then try `--reindex`.
+  Re-check the class name, then try `--reindex`. A `hint:` on stderr repeats
+  both repairs as one command.
+- Error paths (`target not found`, `--last` with no previous run) print a
+  `hint:` line with the complete fix-it command. Hints go to stderr and appear
+  only where the output does not already answer the question - a green `PASS`
+  or a fully reported failure list carries none.
 
 ## When one failure needs more than the report gives
 
