@@ -1,5 +1,9 @@
 # gtv — Gradle test viewer
 
+[![CI](https://github.com/Snarap1/gtv/actions/workflows/ci.yml/badge.svg)](https://github.com/Snarap1/gtv/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Snarap1/gtv)](https://github.com/Snarap1/gtv/releases/latest)
+
+
 `gtv` runs `./gradlew test` and shows results the way a person or a coding
 agent actually wants them: grouped by `@DisplayName`/`@Nested`, with a
 compact machine-readable mode and no scrollback full of Gradle noise.
