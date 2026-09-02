@@ -434,27 +434,18 @@ func fatal(err error) int {
 	return 2
 }
 
-// hintf prints a single actionable next-step hint to stderr (AXI principle 9,
-// contextual disclosure). Every hint is a complete command the agent can run,
-// never a pointer to --help.
 func hintf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "hint: "+format+"\n", args...)
 }
 
-// resolveTargetHint is the error hint when the target cannot be resolved
-// (unknown class, stale index, or missing source file).
 func resolveTargetHint(arg string) {
 	hintf("check the target; if the class is new or renamed, run gtv --reindex %s", arg)
 }
 
-// noResultsHint is the hint for `gtv --last <target>` when no previous run's
-// reports exist for the resolved task.
 func noResultsHint(task string) {
 	hintf("run gtv %s (without --last) to produce results", task)
 }
 
-// noTestsHint is the hint for NOTESTS: Gradle ran but matched zero tests,
-// which almost always means a wrong target or a typo in a --tests filter.
 func noTestsHint(targetArg string) {
 	hintf("check the target/filter; for a newly added class run gtv --reindex %s", targetArg)
 }

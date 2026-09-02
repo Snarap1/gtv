@@ -17,11 +17,7 @@ type Options struct {
 	MaxFrames   int
 	ShowOutput  bool
 	OutputLines int
-
-	// Target, when set, is the user-facing gtv target the report was run
-	// with. It is only used to build the "+N more failures" disclosure hint
-	// (AXI principle 9, contextual disclosure); empty means no hint.
-	Target string
+	Target      string
 }
 
 func DefaultOptions() Options {
