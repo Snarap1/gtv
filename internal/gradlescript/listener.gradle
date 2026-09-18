@@ -108,6 +108,8 @@ if (outPath) {
         testTask.outputs.cacheIf { false }
       }
 
+      testTask.reports.html.required.set(false)
+
       testTask.addTestListener(new TestListener() {
         void beforeSuite(TestDescriptor suite) {
           emit(describe(taskPath, suite) + [e: 'suiteStart', task: taskPath, t: System.currentTimeMillis()])

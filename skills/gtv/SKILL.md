@@ -148,6 +148,7 @@ usually collapses to the one line worth reading. What is still capped:
 | `0` | every test passed | done |
 | `1` | tests failed, or `NOTESTS`, or `--last` found no reports | read the report |
 | `2` | `gtv` itself failed - no Gradle root, no JDK, ambiguous target, unreadable events | fix the invocation |
+| `3` | `--no-wait` was given and another gtv run holds this project | retry later, or rerun without `--no-wait` |
 | other | Gradle failed before tests (compile error, task failure) | compile errors are printed to stderr |
 
 A compile failure prints trimmed diagnostics as `File.kt:56 message`. Fix those
@@ -171,6 +172,7 @@ FQN.
 | `--watch` | rerun on every file change; **interactive only, never in an agent's shell call** - it does not exit |
 | `--reindex` | a class name is not found or resolves to a stale/renamed class |
 | `--no-rerun` | you want Gradle to skip UP-TO-DATE test tasks |
+| `--no-wait` | you would rather exit `3` than queue behind another gtv run in the same repo |
 | `--gradle-output` | you need Gradle's own console after all (rare - defeats the point) |
 | `--human` / `--agent` | force the renderer; the default guess is right in nearly every case |
 | `--java N` | the project needs a different minimum JDK (default 21) |
@@ -185,6 +187,10 @@ FQN.
 - **Do not parse `./gradlew` console output** for results - replacing that is
   the whole point of the tool.
 - **Never run `--watch`** from a non-interactive shell call; it never returns.
+- **One Gradle build per working tree at a time.** gtv enforces this with a
+  project lock: when another gtv run is in progress, yours prints
+  `gtv: waiting for another gtv run in this project (pid N) to finish` and
+  continues once it can. That line is not a hang - let it wait.
 - To re-read a run you already did, use `gtv --last <target>` rather than
   running the suite again.
 - A test that fails identically before your change is a pre-existing failure,
