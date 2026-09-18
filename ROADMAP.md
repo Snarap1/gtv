@@ -244,6 +244,41 @@ cmd/gtv/main.go              runCompile/runBuild/runGradleTask
 **DoD**: `gtv compile :app:service` компилирует модуль и печатает
 `COMPILE :app:service OK`/`FAILED`; `gtv build` собирает весь проект.
 
+## M8 - лок на параллельные прогоны (закрыт)
+
+```
+internal/runner/lock.go          Acquire/Release: flock на <root>/.gradle/gtv.lock
+internal/runner/lock_unix.go     syscall.Flock, retry на EINTR
+internal/runner/lock_windows.go  LockFileEx через kernel32, без внешних deps
+internal/runner/execute.go       Execute берёт лок на весь запуск Gradle
+```
+
+Два агента в одном репо запускают `gtv` одновременно: оба Gradle-билда выполняют
+`:mod:test`, у обоих одни outputs (`build/test-results/test/binary`, `TEST-*.xml`,
+`build/classes` при изменённых сорцах).
+Gradle межпроцессных локов на outputs тасков не ставит, воспроизведено падением
+на записи JUnit XML.
+
+- [x] лок на root, не на task path: `:app:test` и `:core:test` столкнулись бы на
+      компиляции общего `:core`.
+- [x] второй gtv ждёт, печатает в stderr `waiting for another gtv run … (pid N)`
+      один раз, чтобы агент не принял ожидание за зависание.
+- [x] `--no-wait`: выход с кодом 3 сразу. Не 2 - это не ошибка вызова, а
+      транзиентное состояние, агенту достаточно повторить.
+- [x] pid держателя пишется в lock-файл фиксированной ширины (без `Truncate` -
+      на Windows усечение залоченного региона ненадёжно); живость определяет
+      только OS-лок, мёртвый процесс отпускает его сам.
+- [x] init-скрипт выключает HTML-отчёт (`reports.html.required = false`):
+      gtv его не читает, генерация тратит время. XML оставлен ради `--last`.
+- [x] тесты `lock_test.go`: busy при `--no-wait`, ожидание до Release,
+      идемпотентный Release.
+
+Живой прогон на Gradle 9.2 + JUnit 6: второй запуск ждал с нужным сообщением,
+`--no-wait` дал exit 3, `build/reports` не создаётся.
+
+Что лок не закрывает: чужая полусохранённая правка сорцов попадёт в твой билд.
+Это инвариант общего рабочего дерева, лечится только отдельным worktree на агента.
+
 ## Известные факты (проверены, не переоткрывать)
 
 - `TestDescriptor.getDisplayName()` есть в Gradle 9.2 и отдаёт `@DisplayName` класса,

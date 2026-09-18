@@ -21,6 +21,11 @@ type Config struct {
 	OnEvent func(event.Event)
 
 	CaptureOutput bool
+
+	// NoWait fails with ErrBusy instead of waiting when another gtv holds
+	// the project lock; OnWait is told the holder's pid when waiting starts.
+	NoWait bool
+	OnWait func(holderPID int)
 }
 
 type Result struct {
@@ -34,6 +39,12 @@ type Result struct {
 }
 
 func Execute(cfg Config) (*Result, error) {
+	lock, err := Acquire(cfg.Root, !cfg.NoWait, cfg.OnWait)
+	if err != nil {
+		return nil, err
+	}
+	defer lock.Release()
+
 	tmp, err := os.MkdirTemp("", "gtv-")
 	if err != nil {
 		return nil, err

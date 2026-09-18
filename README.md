@@ -175,10 +175,23 @@ too (e.g. `build` by way of `check`), the usual test tree is rendered instead.
 | `--max-fail N`   | failures to report in full (0 = all)                              |
 | `--java N`       | minimum JDK major version to build with (default 21)             |
 | `--no-rerun`     | let Gradle skip UP-TO-DATE or cached test tasks                  |
+| `--no-wait`      | exit 3 instead of waiting when another gtv run holds the project |
 | `--reindex`      | rebuild the test class index instead of trusting the cache       |
 | `--gradle-output`| always print Gradle's own output                                 |
 | `--stats`        | print cumulative token-savings stats and exit                    |
 | `--version`      | print the gtv version and exit                                   |
+
+Concurrent `gtv` runs in one working tree are serialised: Gradle takes no
+cross-process lock on task outputs, so two builds in the same repo race on
+`build/classes` and `build/test-results`. `gtv` holds `.gradle/gtv.lock`
+under the Gradle root for the whole build and a second invocation waits,
+saying so on stderr, until the first finishes. `--no-wait` exits `3`
+immediately instead. The lock is an OS file lock, so a killed run releases
+it by itself.
+
+The init script also turns off Gradle's HTML test report: `gtv` reads
+neither it nor the console, and skipping its generation shaves time off
+every run. JUnit XML is kept for `--last`.
 
 Output picks a renderer automatically: a real terminal gets the colored
 tree, anything else (a pipe, a coding agent, `CI`/`CLAUDE_CODE` in the

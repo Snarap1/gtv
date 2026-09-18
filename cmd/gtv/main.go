@@ -60,6 +60,7 @@ func main() {
 	var (
 		javaMajor    = flag.Int("java", 21, "minimum JDK major version to build with")
 		noRerun      = flag.Bool("no-rerun", false, "let Gradle skip UP-TO-DATE or cached test tasks")
+		noWait       = flag.Bool("no-wait", false, "exit 3 instead of waiting when another gtv run holds the project")
 		gradleOutput = flag.Bool("gradle-output", false, "always print Gradle's own output")
 		forceAgent   = flag.Bool("agent", false, "force compact agent-oriented output")
 		forceHuman   = flag.Bool("human", false, "force colored tree output")
@@ -113,17 +114,17 @@ func main() {
 			fmt.Fprintln(os.Stderr, "gtv: compile requires a module argument, e.g. gtv compile :app:service")
 			os.Exit(2)
 		}
-		os.Exit(runCompile(flag.Args()[1:], *javaMajor, *reindex, *gradleOutput, human, color, opts))
+		os.Exit(runCompile(flag.Args()[1:], *javaMajor, *reindex, *gradleOutput, *noWait, human, color, opts))
 	}
 	if flag.Arg(0) == "build" {
-		os.Exit(runBuild(flag.Args()[1:], *javaMajor, *gradleOutput, human, color, opts))
+		os.Exit(runBuild(flag.Args()[1:], *javaMajor, *gradleOutput, *noWait, human, color, opts))
 	}
 
 	runOnce := func() int {
 		if *last {
 			return runLast(flag.Args(), human, color, *reindex, *jsonOut, opts)
 		}
-		return run(flag.Args(), *javaMajor, *noRerun, *gradleOutput, human, color, *reindex, *jsonOut, opts)
+		return run(flag.Args(), *javaMajor, *noRerun, *gradleOutput, *noWait, human, color, *reindex, *jsonOut, opts)
 	}
 
 	if !*watchFlag {
@@ -176,7 +177,7 @@ func isTTY(f *os.File) bool {
 	return info.Mode()&os.ModeCharDevice != 0
 }
 
-func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, reindex, jsonOut bool, opts render.Options) int {
+func run(args []string, javaMajor int, noRerun, alwaysShowGradle, noWait, human, color, reindex, jsonOut bool, opts render.Options) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fatal(err)
@@ -201,7 +202,11 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 	}
 	opts.Target = args[0]
 
-	cfg := runner.Config{Root: root, JavaHome: jdk.Home, Args: gradleArgs, ForceRerun: !noRerun, CaptureOutput: opts.ShowOutput}
+	cfg := runner.Config{
+		Root: root, JavaHome: jdk.Home, Args: gradleArgs,
+		ForceRerun: !noRerun, CaptureOutput: opts.ShowOutput,
+		NoWait: noWait, OnWait: waitNotice,
+	}
 
 	var live *render.Live
 	if human && isTTY(os.Stdout) {
@@ -214,7 +219,7 @@ func run(args []string, javaMajor int, noRerun, alwaysShowGradle, human, color, 
 		live.Finish()
 	}
 	if err != nil {
-		return fatal(err)
+		return execFailure(err)
 	}
 
 	if res.Tree.Counts().Total == 0 {
@@ -251,7 +256,7 @@ func runJava(minMajor int) int {
 	return 0
 }
 
-func runCompile(args []string, javaMajor int, reindex, alwaysShowGradle, human, color bool, opts render.Options) int {
+func runCompile(args []string, javaMajor int, reindex, alwaysShowGradle, noWait, human, color bool, opts render.Options) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fatal(err)
@@ -279,10 +284,10 @@ func runCompile(args []string, javaMajor int, reindex, alwaysShowGradle, human, 
 	}
 
 	gradleArgs := append([]string{module + ":build", "-x", "test"}, args[1:]...)
-	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, human, color, opts, "COMPILE "+module)
+	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, noWait, human, color, opts, "COMPILE "+module)
 }
 
-func runBuild(args []string, javaMajor int, alwaysShowGradle, human, color bool, opts render.Options) int {
+func runBuild(args []string, javaMajor int, alwaysShowGradle, noWait, human, color bool, opts render.Options) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fatal(err)
@@ -297,7 +302,7 @@ func runBuild(args []string, javaMajor int, alwaysShowGradle, human, color bool,
 	}
 
 	gradleArgs := append([]string{"build"}, args...)
-	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, human, color, opts, "BUILD")
+	return runGradleTask(root, jdk.Home, gradleArgs, alwaysShowGradle, noWait, human, color, opts, "BUILD")
 }
 
 // runGradleTask drives a non-test Gradle task (compile/build). Such tasks may
@@ -305,8 +310,12 @@ func runBuild(args []string, javaMajor int, alwaysShowGradle, human, color bool,
 // so a populated Tree is rendered exactly like a normal test run; an empty
 // Tree just gets a compact OK/FAILED line, never NOTESTS - zero tests is the
 // expected, successful outcome for a plain compile.
-func runGradleTask(root, javaHome string, gradleArgs []string, alwaysShowGradle, human, color bool, opts render.Options, label string) int {
-	cfg := runner.Config{Root: root, JavaHome: javaHome, Args: gradleArgs, CaptureOutput: opts.ShowOutput}
+func runGradleTask(root, javaHome string, gradleArgs []string, alwaysShowGradle, noWait, human, color bool, opts render.Options, label string) int {
+	cfg := runner.Config{
+		Root: root, JavaHome: javaHome, Args: gradleArgs,
+		CaptureOutput: opts.ShowOutput,
+		NoWait:        noWait, OnWait: waitNotice,
+	}
 
 	var live *render.Live
 	if human && isTTY(os.Stdout) {
@@ -319,7 +328,7 @@ func runGradleTask(root, javaHome string, gradleArgs []string, alwaysShowGradle,
 		live.Finish()
 	}
 	if err != nil {
-		return fatal(err)
+		return execFailure(err)
 	}
 
 	switch {
@@ -454,6 +463,26 @@ func runLast(args []string, human, color, reindex, jsonOut bool, opts render.Opt
 func fatal(err error) int {
 	fmt.Fprintln(os.Stderr, "gtv:", err)
 	return 2
+}
+
+// execFailure maps a runner.Execute error to an exit code: a busy project
+// lock under --no-wait is exit 3 (transient, retry later), anything else
+// is the usual exit 2.
+func execFailure(err error) int {
+	if errors.Is(err, runner.ErrBusy) {
+		fmt.Fprintln(os.Stderr, "gtv:", err)
+		hintf("retry later, or drop --no-wait to queue behind it")
+		return 3
+	}
+	return fatal(err)
+}
+
+func waitNotice(holderPID int) {
+	if holderPID > 0 {
+		fmt.Fprintf(os.Stderr, "gtv: waiting for another gtv run in this project (pid %d) to finish\n", holderPID)
+		return
+	}
+	fmt.Fprintln(os.Stderr, "gtv: waiting for another gtv run in this project to finish")
 }
 
 func hintf(format string, args ...any) {
