@@ -48,30 +48,40 @@ The version baked into each binary comes from the nearest git tag
 
 ### Windows
 
-`build.sh` is a bash script and will not run in `cmd.exe` or PowerShell.
-Use WSL, or build natively with plain Go:
+Install the latest release from PowerShell (no admin rights needed):
+
+```powershell
+irm https://raw.githubusercontent.com/Snarap1/gtv/main/install.ps1 | iex
+```
+
+[`install.ps1`](install.ps1) downloads `gtv-windows-amd64.exe`, verifies it
+against the release's `checksums.txt`, installs it as
+`%LOCALAPPDATA%\Programs\gtv\gtv.exe` and adds that directory to the user
+`PATH`. Re-run it to upgrade; set `$env:GTV_VERSION = "v0.2.0"` first to pin a
+release. Open a new terminal afterwards, then verify with `gtv --version`.
+
+To build from source instead: `build.sh` is a bash script and will not run in
+`cmd.exe` or PowerShell, so use WSL or plain Go (1.22+):
 
 ```powershell
 cd path\to\gradleTestCliViewer
 go build -o gtv.exe .\cmd\gtv
 ```
 
-Requires Go 1.22+ (`go version` to check). This skips the git-tag version
-stamping that `build.sh` does, so `gtv --version` reports `dev`.
-
-Put it on `PATH`:
+This skips the git-tag version stamping that `build.sh` does, so
+`gtv --version` reports `dev`. Put it on `PATH`:
 
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\bin" | Out-Null
-Move-Item gtv.exe "$env:USERPROFILE\bin\gtv.exe" -Force
-[Environment]::SetEnvironmentVariable("Path", "$env:Path;$env:USERPROFILE\bin", "User")
+$dir = "$env:LOCALAPPDATA\Programs\gtv"
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+Move-Item gtv.exe "$dir\gtv.exe" -Force
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$userPath;$dir", "User")
 ```
 
-Open a new terminal for the `PATH` change to take effect, then verify with
-`gtv --version`.
-
-Alternatively, cross-compile `dist/gtv-windows-amd64.exe` on Linux/Mac (see
-above) and copy that binary over instead of building on Windows at all.
+Read the user `PATH` with `GetEnvironmentVariable` rather than `$env:Path`:
+the latter also contains the machine `PATH`, which would get copied into the
+user scope.
 
 ## Uninstall
 
@@ -92,6 +102,9 @@ rm -rf ~/.cache/gtv
 
 A local `./gtv` binary or the `dist/` cross-builds are not touched;
 delete those yourself if you created them.
+
+On Windows, delete `%LOCALAPPDATA%\Programs\gtv` and remove that entry from
+the user `PATH` (Settings > "Edit environment variables for your account").
 
 ## Agent skill
 
